@@ -1,0 +1,202 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Anatomy of a Viral Article</title><style>body{font-family:Georgia,Times,serif;max-width:900px;margin:40px auto;padding:0 24px;line-height:1.65;color:#222;background:#fff}h1,h2{line-height:1.25}h1{font-size:2.2rem;margin-bottom:.4rem}h2{margin-top:2rem;border-bottom:1px solid #ddd;padding-bottom:.2rem}img{max-width:100%;height:auto;display:block;margin:1rem auto;border:1px solid #ddd}table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.96rem}th,td{border:1px solid #cfcfcf;padding:.55rem .7rem;vertical-align:top}th{background:#f5f5f5}code{background:#f2f2f2;padding:.08rem .25rem;border-radius:3px}p,li{font-size:1rem}blockquote{border-left:4px solid #ccc;margin:1rem 0;padding-left:1rem;color:#555}</style></head><body><h1>Anatomy of a Viral Article</h1>
+<h2>Introduction and Motivation</h2>
+<p>Online news articles shape public opinion, attention, and conversation at a scale that extends beyond marketing metrics. When an article spreads widely, it can amplify political narratives, social movements, and consumer behavior. Because of that reach, it is useful to understand which article characteristics are associated with virality and whether those relationships differ across content categories. Prior work has often emphasized prediction, including information-cascade forecasting and popularity classification, but prediction accuracy alone does not show which article features have interpretable statistical associations with sharing outcomes (Cheng et al.; Fernandes, Vinagre, and Cortez). This project therefore shifts the focus from prediction to inference.</p>
+<p>The guiding question is: which structural, temporal, and sentiment features are associated with online news virality in the Mashable Online News Popularity dataset, and do those associations vary by article category?</p>
+<h2>Data Source and Description</h2>
+<p>The data come from the UCI Machine Learning Repository’s Online News Popularity dataset, originally assembled from Mashable articles and documented by Fernandes, Vinagre, and Cortez. The local CSV used in this project contains <code>39,644</code> articles and <code>61</code> columns, even though the UCI metadata and <code>.names</code> file report <code>39,797</code> instances. This report treats the local CSV as the analytic source of truth and notes the discrepancy explicitly.</p>
+<p>The response variable is <code>shares</code>, the number of times an article was shared. Following the proposal, virality is also analyzed as a binary outcome: an article is labeled viral if it falls in the top 10% of observed shares. In this file, that threshold is <code>6,200</code> shares. The main predictors were chosen to match the proposal’s substantive goals: title length, article length, number of images, number of videos, weekend publication, global sentiment polarity, global subjectivity, positive-word rate, negative-word rate, and content category. Category was collapsed into a single <code>channel</code> variable from the six Mashable channel indicators, with <code>6,134</code> unlabeled rows retained as <code>other</code> rather than dropped.</p>
+<p>Table 1 summarizes the sample and the outcome distribution.</p>
+<table>
+<thead>
+<tr>
+  <th>Table 1. Sample and outcome summary</th>
+  <th style="text-align:right">Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Analytic sample size</td>
+  <td style="text-align:right">39,644</td>
+</tr>
+<tr>
+  <td>Missing values</td>
+  <td style="text-align:right">0</td>
+</tr>
+<tr>
+  <td>Viral threshold</td>
+  <td style="text-align:right">6,200 shares</td>
+</tr>
+<tr>
+  <td>Overall viral rate</td>
+  <td style="text-align:right">10.16%</td>
+</tr>
+<tr>
+  <td>Median shares, full sample</td>
+  <td style="text-align:right">1,400</td>
+</tr>
+<tr>
+  <td>IQR shares, full sample</td>
+  <td style="text-align:right">946 to 2,800</td>
+</tr>
+<tr>
+  <td>Median shares, non-viral</td>
+  <td style="text-align:right">1,300</td>
+</tr>
+<tr>
+  <td>Median shares, viral</td>
+  <td style="text-align:right">10,700</td>
+</tr>
+<tr>
+  <td>Highest viral rate by channel</td>
+  <td style="text-align:right"><code>other</code>, 20.17%</td>
+</tr>
+<tr>
+  <td>Lowest viral rate by channel</td>
+  <td style="text-align:right"><code>world</code>, 5.76%</td>
+</tr>
+</tbody>
+</table>
+<h2>Exploratory Data Analysis</h2>
+<p>The response distribution is extremely right-skewed. Raw shares have skewness <code>33.96</code>, while <code>log(1 + shares)</code> reduces skewness to <code>1.03</code>. The median article received <code>1,400</code> shares, but the 99th percentile exceeded <code>31,000</code>, indicating a long upper tail. A Kolmogorov-Smirnov test on standardized log-shares still rejected normality (<code>D = 0.110</code>, <code>p &lt; 0.001</code>), but with nearly forty thousand observations that result is expected even for moderate visual deviations. For that reason, the log transform and the plots are more informative than the test alone.</p>
+<p><img src="../outputs/figures/fig1_share_distribution.png" alt="Figure 1. Raw-share histogram, log-share histogram, and Q-Q plot of log-transformed shares." /></p>
+<p>Category and timing also mattered descriptively. The viral rate was highest for unlabeled <code>other</code> articles (<code>20.17%</code>) and lowest for <code>world</code> articles (<code>5.76%</code>). Weekend publication was more common among viral articles (<code>16.26%</code>) than non-viral articles (<code>12.73%</code>).</p>
+<p><img src="../outputs/figures/fig2_virality_rates.png" alt="Figure 2. Viral rates by article channel and publication timing." /></p>
+<h2>Methods</h2>
+<p>Because shares were highly skewed, the proposal was refined in two ways after inspecting the data. First, viral and non-viral groups were compared with Mann-Whitney U tests for continuous predictors rather than two-sample t-tests. Second, the main linear model used <code>log(1 + shares)</code> and HC3 robust standard errors because a Breusch-Pagan test showed strong heteroskedasticity (<code>p &lt; 0.001</code>). These refinements preserve the proposal’s inferential goals while making the analysis better aligned with the observed data.</p>
+<p>Two families of models were fit. The continuous-outcome model regressed <code>log(1 + shares)</code> on standardized structural and sentiment predictors plus weekend publication and article channel, using <code>world</code> as the reference category. The binary-outcome model used logistic regression for the top-10% virality indicator with the same predictors and reported odds ratios. To test the proposal’s claim that sentiment effects differ by category, an interaction model added channel-by-subjectivity and channel-by-sentiment-polarity terms and was compared to the base model with a nested-model F test. Model diagnostics included variance inflation factors, residual plots, a Breusch-Pagan test, McFadden pseudo-(R^2), ROC AUC, and a robustness check that refit the OLS model after excluding the top 1% of shares.</p>
+<h2>Results</h2>
+<p>Univariate comparisons showed that viral articles tended to have more images, more videos, slightly higher subjectivity, and a higher weekend publication rate. Channel had the strongest bivariate relationship with virality in the univariate tests (Cramer's <code>V = 0.156</code>, FDR-adjusted <code>q &lt; 0.001</code>). Subjectivity also stood out among continuous predictors (rank-biserial <code>r = 0.153</code>, <code>q &lt; 0.001</code>). In contrast, title length, negative-word rate, and overall sentiment polarity were not significant after false-discovery-rate correction.</p>
+<table>
+<thead>
+<tr>
+  <th>Table 2. Univariate comparisons of viral vs. non-viral articles</th>
+  <th style="text-align:right">Effect size</th>
+  <th style="text-align:right">FDR-adjusted q-value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Channel</td>
+  <td style="text-align:right">0.156 (Cramer's V)</td>
+  <td style="text-align:right">&lt;0.001</td>
+</tr>
+<tr>
+  <td>Global subjectivity</td>
+  <td style="text-align:right">0.153 (rank-biserial r)</td>
+  <td style="text-align:right">&lt;0.001</td>
+</tr>
+<tr>
+  <td>Number of videos</td>
+  <td style="text-align:right">0.112 (rank-biserial r)</td>
+  <td style="text-align:right">&lt;0.001</td>
+</tr>
+<tr>
+  <td>Number of images</td>
+  <td style="text-align:right">0.073 (rank-biserial r)</td>
+  <td style="text-align:right">&lt;0.001</td>
+</tr>
+<tr>
+  <td>Weekend publication</td>
+  <td style="text-align:right">0.031 (Cramer's V)</td>
+  <td style="text-align:right">&lt;0.001</td>
+</tr>
+<tr>
+  <td>Article length</td>
+  <td style="text-align:right">-0.059 (rank-biserial r)</td>
+  <td style="text-align:right">&lt;0.001</td>
+</tr>
+<tr>
+  <td>Positive-word rate</td>
+  <td style="text-align:right">-0.031 (rank-biserial r)</td>
+  <td style="text-align:right">0.002</td>
+</tr>
+<tr>
+  <td>Sentiment polarity</td>
+  <td style="text-align:right">0.015 (rank-biserial r)</td>
+  <td style="text-align:right">0.150</td>
+</tr>
+<tr>
+  <td>Negative-word rate</td>
+  <td style="text-align:right">-0.007 (rank-biserial r)</td>
+  <td style="text-align:right">0.496</td>
+</tr>
+<tr>
+  <td>Title length</td>
+  <td style="text-align:right">-0.004 (rank-biserial r)</td>
+  <td style="text-align:right">0.650</td>
+</tr>
+</tbody>
+</table>
+<p>In the multivariable models, structural and timing variables remained important even after adjustment. In the HC3-robust OLS model, one standard-deviation increases in image count, content length, video count, and subjectivity were associated with higher expected log-shares, while weekend publication was associated with the largest single shift among the proposal’s non-category predictors (<code>beta = 0.284</code>, about a <code>32.9%</code> increase in expected shares holding other variables fixed). Positive-word rate and negative-word rate were both negative in the adjusted OLS model, suggesting that once broader subjectivity and polarity were controlled, articles with a more extreme balance of sentiment words did not systematically receive more shares.</p>
+<p>The logistic model told a similar story. A one standard-deviation increase in image count raised the odds of being viral by about <code>11.2%</code> (<code>OR = 1.112</code>, <code>95% CI [1.078, 1.148]</code>), and a one standard-deviation increase in subjectivity raised the odds by about <code>25.4%</code> (<code>OR = 1.254</code>, <code>95% CI [1.195, 1.316]</code>). Weekend publication was also associated with higher odds of virality (<code>OR = 1.233</code>, <code>95% CI [1.126, 1.351]</code>). Content length was significant in the OLS model but not in the logistic model, which suggests it is more related to incremental increases in shares than to crossing the top-decile cutoff itself.</p>
+<table>
+<thead>
+<tr>
+  <th>Table 3. Main multivariable results</th>
+  <th style="text-align:right">OLS beta on log-shares</th>
+  <th style="text-align:right">Logistic odds ratio</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>Title length</td>
+  <td style="text-align:right">0.009 (<code>p = 0.049</code>)</td>
+  <td style="text-align:right">1.038 (<code>p = 0.031</code>)</td>
+</tr>
+<tr>
+  <td>Content length</td>
+  <td style="text-align:right">0.031 (<code>p &lt; 0.001</code>)</td>
+  <td style="text-align:right">1.013 (<code>p = 0.499</code>)</td>
+</tr>
+<tr>
+  <td>Number of images</td>
+  <td style="text-align:right">0.046 (<code>p &lt; 0.001</code>)</td>
+  <td style="text-align:right">1.112 (<code>p &lt; 0.001</code>)</td>
+</tr>
+<tr>
+  <td>Number of videos</td>
+  <td style="text-align:right">0.019 (<code>p &lt; 0.001</code>)</td>
+  <td style="text-align:right">1.057 (<code>p &lt; 0.001</code>)</td>
+</tr>
+<tr>
+  <td>Weekend publication</td>
+  <td style="text-align:right">0.284 (<code>p &lt; 0.001</code>)</td>
+  <td style="text-align:right">1.233 (<code>p &lt; 0.001</code>)</td>
+</tr>
+<tr>
+  <td>Sentiment polarity</td>
+  <td style="text-align:right">-0.020 (<code>p = 0.013</code>)</td>
+  <td style="text-align:right">0.985 (<code>p = 0.576</code>)</td>
+</tr>
+<tr>
+  <td>Subjectivity</td>
+  <td style="text-align:right">0.090 (<code>p &lt; 0.001</code>)</td>
+  <td style="text-align:right">1.254 (<code>p &lt; 0.001</code>)</td>
+</tr>
+<tr>
+  <td>Positive-word rate</td>
+  <td style="text-align:right">-0.083 (<code>p &lt; 0.001</code>)</td>
+  <td style="text-align:right">0.788 (<code>p &lt; 0.001</code>)</td>
+</tr>
+<tr>
+  <td>Negative-word rate</td>
+  <td style="text-align:right">-0.088 (<code>p &lt; 0.001</code>)</td>
+  <td style="text-align:right">0.847 (<code>p &lt; 0.001</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Category differences were substantial. Relative to <code>world</code>, lifestyle, social media, tech, business, entertainment, and especially <code>other</code> articles all showed higher adjusted popularity. In the logistic model, <code>other</code> articles had the highest odds of virality (<code>OR = 3.134</code>, <code>95% CI [2.766, 3.550]</code>), followed by social media (<code>OR = 2.174</code>) and lifestyle (<code>OR = 2.078</code>). The interaction test was also highly significant (<code>F = 13.24</code>, <code>p &lt; 0.001</code>), supporting the proposal’s expectation that sentiment-related associations differ across categories. Figure 3 shows that subjectivity had a clearly positive adjusted association in most channels, but the slope was weakest and slightly negative for social media articles.</p>
+<p><img src="../outputs/figures/fig3_interaction_subjectivity.png" alt="Figure 3. Adjusted predictions from the interaction model showing how the association between subjectivity and expected log-shares differs across channels." /></p>
+<p>Model fit was moderate rather than strong. The main OLS model had <code>R^2 = 0.076</code>, the logistic model had McFadden pseudo-<code>R^2 = 0.041</code>, and the ROC AUC was <code>0.655</code>. Those values reinforce the project’s central point: virality is not explained by a single easy recipe, even when several features are statistically significant. The robustness check excluding the top 1% of share counts did not reverse the direction of the main structural or timing coefficients.</p>
+<h2>Relation to the Original Proposal</h2>
+<p>This final project remains closely aligned with the proposal. The core research question, top-10% virality definition, use of structural, temporal, and sentiment predictors, and emphasis on interpretable regression all stayed the same. The main changes were methodological refinements made after seeing the data: Mann-Whitney tests replaced parametric mean-comparison tests because the distributions were heavily skewed, and HC3 robust standard errors were used because residual variance was not constant. Those changes strengthened the proposal rather than changing its direction.</p>
+<h2>Limitations</h2>
+<p>Several limitations matter for interpretation. First, the dataset comes from one publisher and an older publishing environment, so the findings may not generalize cleanly to current platforms or to outlets with different audiences. Second, virality is measured only through share counts and does not observe network structure, headline placement, recommender systems, or external events, all of which can affect diffusion. Third, the <code>other</code> category is large and heterogeneous, making it hard to interpret substantively even though it is statistically important. Finally, this is an observational study, so the results should be read as associations rather than causal effects.</p>
+<h2>Conclusion</h2>
+<p>The analysis suggests that online news virality in this dataset is associated less with a single sentiment formula and more with a combination of format, timing, and topic context. Articles with more images and videos, higher subjectivity, and weekend publication tended to perform better, while category differences were large and persistent across models. At the same time, the relatively low fit statistics show that these variables explain only a limited share of overall popularity. That conclusion is still informative: virality is context-dependent, only partly captured by article-level features, and likely shaped by omitted social and platform dynamics.</p>
+<h2>Works Cited</h2>
+<p>Bandari, Roja, Sitaram Asur, and Bernardo A. Huberman. &quot;The Pulse of News in Social Media: Forecasting Popularity.&quot; <em>Proceedings of the International AAAI Conference on Web and Social Media</em>, vol. 6, no. 1, 2012, pp. 26-33.</p>
+<p>Cheng, Justin, et al. &quot;Can Cascades Be Predicted?&quot; <em>Proceedings of the 23rd International Conference on World Wide Web</em>, 2014, pp. 925-936.</p>
+<p>Fernandes, Kelwin, Pedro Vinagre, and Pedro Cortez. &quot;A Proactive Intelligent Decision Support System for Predicting the Popularity of Online News.&quot; <em>Proceedings of the 17th EPIA Conference on Artificial Intelligence</em>, 2015, pp. 535-546.</p>
+<p>&quot;Online News Popularity.&quot; <em>UCI Machine Learning Repository</em>, University of California, Irvine, https://archive.ics.uci.edu/dataset/332/online+news+popularity. Accessed 3 Mar. 2026.</p>
+</body></html>

@@ -1,0 +1,2 @@
+comparison,df_diff,ss_diff,f_statistic,p_value
+base_vs_interaction_ols,12.0,126.43247629966208,13.243514196882888,1.0013653879819124e-27
